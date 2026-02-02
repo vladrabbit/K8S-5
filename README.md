@@ -256,4 +256,4 @@ openssl x509 -req -in developer.csr -CA {CA серт вашего кластер
 
 - Скриншот проверки прав (`kubectl get pods --as=developer`)
 
-![CSR-4]()
+![CSR-4](https://github.com/vladrabbit/K8S-5/blob/main/scr/%D0%A1%D0%BD%D0%B8%D0%BC%D0%BE%D0%BA%20%D1%8D%D0%BA%D1%80%D0%B0%D0%BD%D0%B0%202026-02-02%20%D0%B2%2018.45.57.png)
