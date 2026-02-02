@@ -187,102 +187,73 @@ openssl x509 -req -in developer.csr -CA {CA серт вашего кластер
 - Скриншот проверки прав (`kubectl get pods --as=developer`)
 
 ---
-## Шаблоны манифестов с учебными комментариями
-### **1. Deployment с ConfigMap (nginx + multitool)**
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: web-app
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: web-app
-  template:
+
+## **Решение 3: Настройка RBAC**  
+
+- Манифесты:
+  - `role-pod-reader.yaml`
+
+    ```yaml
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
     metadata:
-      labels:
-        app: web-app
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:latest
-        ports:
-        - containerPort: 80
-        volumeMounts:
-        - name: nginx-config # ПОДКЛЮЧЕНИЕ ConfigMap
-          mountPath: /etc/nginx/conf.d
-      volumes:
-      - name: nginx-config
-        configMap:
-          name: nginx-config # УКАЖИТЕ имя созданного ConfigMap
-```
-### **2. ConfigMap для веб-страницы**
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: web-content # ИЗМЕНИТЕ: Укажите имя ConfigMap
-  namespace: default # ОПЦИОНАЛЬНО: Укажите namespace, если не default
-data:
-  # КЛЮЧЕВОЙ МОМЕНТ: index.html будет подключен как файл
-  index.html: |
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Страница из ConfigMap</title> # ИЗМЕНИТЕ: Заголовок страницы
-    </head>
-    <body>
-      <h1>Привет от Kubernetes!</h1> # ДОБАВЬТЕ: Свой контент страницы
-    </body>
-    </html>
-```
+      name: pod-viewer
+      namespace: default
+    rules:
+    - apiGroups: [""]
+      resources:
+        - pods
+        - pods/log
+      verbs:
+        - get
+        - list
+        - watch
+    ```
 
-### **3. Secret для TLS-сертификата**
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: tls-secret # ИЗМЕНИТЕ при необходимости
-type: kubernetes.io/tls
-data:
-  tls.crt: # ЗАМЕНИТЕ на base64-код сертификата (cat tls.crt | base64 -w 0)
-  tls.key: # ЗАМЕНИТЕ на base64-код ключа (cat tls.key | base64 -w 0)
-```
-### **4. Role для просмотра подов**
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: pod-viewer # ИЗМЕНИТЕ: Название роли
-  namespace: default # ВАЖНО: Role работает только в указанном namespace
-rules:
-- apiGroups: [""] # КЛЮЧЕВОЙ МОМЕНТ: "" означает core API group
-  resources: # РАЗРЕШЕННЫЕ РЕСУРСЫ:
-    - pods # Доступ к просмотру подов
-    - pods/log # Доступ к логам подов
-  verbs: # РАЗРЕШЕННЫЕ ДЕЙСТВИЯ:
-    - get # Просмотр отдельных подов
-    - list # Список всех подов
-    - watch # Мониторинг изменений
-    - describe # Просмотр деталей
-# ДОПОЛНИТЕЛЬНО: Можно добавить больше правил для других ресурсов
-```
----
+  - `rolebinding-developer.yaml`
 
-## **Правила приёма работы**
-1. Домашняя работа оформляется в своём Git-репозитории в файле README.md. Выполненное домашнее задание пришлите ссылкой на .md-файл в вашем репозитории.
-2. Файл README.md должен содержать:
-   - Скриншоты вывода команд `kubectl`
-   - Скриншоты результатов выполнения
-   - Тексты манифестов или ссылки на них
-3. Для заданий с TLS приложите команды генерации сертификатов
+    ```yaml
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: developer-pod-viewer
+      namespace: default
+    subjects:
+    - kind: User
+      name: developer
+      apiGroup: rbac.authorization.k8s.io
+    roleRef:
+      kind: Role
+      name: pod-viewer
+      apiGroup: rbac.authorization.k8s.io
 
-## **Критерии оценивания задания**
-1. Зачёт: Все задачи выполнены, манифесты корректны, есть доказательства работы (скриншоты).
-2. Доработка (на доработку задание направляется 1 раз): основные задачи выполнены, при этом есть ошибки в манифестах или отсутствуют проверочные скриншоты.
-3. Незачёт: работа выполнена не в полном объёме, есть ошибки в манифестах, отсутствуют проверочные скриншоты. Все попытки доработки израсходованы (на доработку работа направляется 1 раз). Этот вид оценки используется крайне редко.
+    ```
 
-## **Срок выполнения задания**  
-1. 5 дней на выполнение задания.
-2. 5 дней на доработку задания (в случае направления задания на доработку).
+- Команды генерации сертификатов
+
+  Генерация приватного ключа
+  `openssl genrsa -out developer.key 2048`
+
+  CSR
+  ```bash
+    openssl req -new -key developer.key -out developer.csr \
+    -subj "/CN=developer"
+  ```
+
+  Подписываем сертификат CA
+
+  ```bash
+
+    sudo openssl x509 -req \
+      -in developer.csr \
+      -CA /etc/kubernetes/pki/ca.crt \
+      -CAkey /etc/kubernetes/pki/ca.key \
+      -CAcreateserial \
+      -out developer.crt \
+      -days 365
+
+  ```
+
+- Скриншот проверки прав (`kubectl get pods --as=developer`)
+
+![CSR-4]()
